@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Motion Contact Sheet — demo gallery</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; background: #0f1226; color: #cdd3f0; display: grid; place-items: center; min-height: 100vh; }
+      /* .stage is the region the capture script clips to. */
+      .stage { position: relative; width: 760px; height: 420px; background: radial-gradient(120% 140% at 10% 10%, #1b2150, #0c0f22); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); perspective: 1400px; }
+      .slot { position: absolute; border-radius: 10px; border: 2px dashed rgba(255,255,255,.18); }
+      .card { position: absolute; border-radius: 10px; background: linear-gradient(150deg,#ffd36e,#ff8a5c); box-shadow: 0 8px 20px rgba(0,0,0,.45); display: grid; place-items: center; font-size: 40px; color:#1a1a1a; transform-style: preserve-3d; will-change: transform; }
+      .hint { position: absolute; bottom: 12px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,.45); font-size: 13px; }
+      .neighbour { position:absolute; border-radius:10px; background: linear-gradient(150deg,#8ad,#46a); box-shadow:0 8px 20px rgba(0,0,0,.4); }
+    </style>
+  </head>
+  <body>
+    <div class="stage" id="stage"></div>
+
+    <script>
+      // A gallery of named animations. The capture script calls
+      // window.play('<scenario>') and samples a burst; window.SCENARIOS lists
+      // them with the capture settings each one wants. Everything is built on
+      // the Web Animations API (no framework), so a generic slowdown
+      // (document.getAnimations().forEach(a => a.updatePlaybackRate(r))) works.
+      const stage = document.getElementById('stage');
+      const FROM = 40, TO = 630, TOP = 150, W = 90, H = 126;
+
+      function reset(html) { stage.innerHTML = html + '<div class="hint" id="hint"></div>'; }
+      function el(cls, css) { const d = document.createElement('div'); d.className = cls; Object.assign(d.style, css); stage.appendChild(d); return d; }
+      function slots() {
+        el('slot', { left: FROM + 'px', top: TOP + 'px', width: W + 'px', height: H + 'px' });
+        el('slot', { left: TO + 'px', top: TOP + 'px', width: W + 'px', height: H + 'px' });
+      }
+      function card(css) { return el('card', Object.assign({ left: FROM + 'px', top: TOP + 'px', width: W + 'px', height: H + 'px' }, css)); }
+      const flightFrames = [
+        { transform: 'translateX(0) rotateY(0deg) scale(1)' },
+        { transform: `translateX(${(TO-FROM)/2}px) translateY(-26px) rotateY(90deg) scale(1.06)`, offset: 0.45 },
+        { transform: `translateX(${TO-FROM}px) translateY(0) rotateY(180deg) scale(1)`, offset: 0.9 },
+        { transform: `translateX(${TO-FROM}px) translateY(0) rotateY(180deg) scale(1)` },
+      ];
+
+      const scenarios = {
+        // the simplest case: a plain left-to-right slide, no flip, no settle
+        'slide'() {
+          stage.innerHTML = ''; slots(); const c = card(); c.textContent = '★';
+          return c.animate(
+            [{ transform: 'translateX(0)' }, { transform: `translateX(${TO-FROM}px)` }],
+            { duration: 1200, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' },
+          ).finished;
+        },
+        // clean baseline
+        'card-flight'() {
+          stage.innerHTML = ''; slots(); const c = card();
+          c.textContent = '★';
+          return c.animate(flightFrames, { duration: 1400, easing: 'linear', fill: 'forwards' }).finished;
+        },
+        // the opener: a kitchen-sink animation — fly-in + flip (fast), a brief
+        // settle, then a double pulse (slower scale-throb). Many speeds, rotation,
+        // scale, all in a horizontal band of a tall stage (so the crop matters).
+        'banger'() {
+          stage.innerHTML = '';
+          el('slot', { left: TO + 'px', top: TOP + 'px', width: W + 'px', height: H + 'px' });
+          const c = card(); c.textContent = '★'; c.style.left = (FROM - 120) + 'px';
+          const D = TO - (FROM - 120);
+          return c.animate(
+            [
+              { transform: 'translateX(0) rotateY(0deg) scale(1)', offset: 0 },
+              { transform: `translateX(${D/2}px) translateY(-34px) rotateY(90deg) scale(1.06)`, offset: 0.22 },
+              { transform: `translateX(${D}px) translateY(0) rotateY(180deg) scale(1)`, offset: 0.45 },
+              { transform: `translateX(${D}px) rotateY(180deg) scale(1)`, offset: 0.56 },        // brief settle
+              { transform: `translateX(${D}px) rotateY(180deg) scale(1.18)`, offset: 0.68 },     // pulse 1 up
+              { transform: `translateX(${D}px) rotateY(180deg) scale(1)`, offset: 0.8 },         // pulse 1 down
+              { transform: `translateX(${D}px) rotateY(180deg) scale(1.12)`, offset: 0.9 },      // pulse 2 up
+              { transform: `translateX(${D}px) rotateY(180deg) scale(1)`, offset: 1 },           // pulse 2 down
+            ],
+            { duration: 2600, easing: 'linear', fill: 'forwards' },
+          ).finished;
+        },
+        // BUG: ends elevated, then snaps flat the instant the animation releases
+        'snap-on-release'() {
+          stage.innerHTML = ''; slots(); const c = card(); c.textContent = '★';
+          const a = c.animate(
+            [
+              { transform: 'translateX(0) rotateY(0deg)' },
+              { transform: `translateX(${(TO-FROM)/2}px) translateY(-26px) rotateY(90deg)`, offset: 0.45 },
+              // ...lands POPPED UP (44px high, enlarged) — looks settled at a glance...
+              { transform: `translateX(${TO-FROM}px) translateY(-44px) rotateY(180deg) scale(1.14)`, offset: 0.85 },
+              { transform: `translateX(${TO-FROM}px) translateY(-44px) rotateY(180deg) scale(1.14)` },
+            ],
+            { duration: 1300, easing: 'linear', fill: 'forwards' },
+          );
+          a.finished.then(() => { c.style.transform = `translateX(${TO-FROM}px) translateY(0) rotateY(180deg) scale(1)`; }); // ...then SNAPS down to rest
+          return a.finished;
+        },
+        // BUG: flashes at the destination for a beat before flying from the start
+        'pre-flight-flash'() {
+          stage.innerHTML = ''; slots(); const c = card(); c.textContent = '★';
+          c.style.transform = `translateX(${TO-FROM}px) rotateY(180deg)`; // flash at destination
+          return new Promise((res) => setTimeout(() => {
+            c.style.transform = 'translateX(0) rotateY(0deg)'; // jump back to start
+            c.animate(flightFrames, { duration: 1300, easing: 'linear', fill: 'forwards' }).finished.then(res);
+          }, 90));
+        },
+        // motion-aware selection: move, long pause, move
+        'long-pause'() {
+          stage.innerHTML = ''; slots(); const c = card(); c.textContent = '★';
+          return c.animate(
+            [
+              { transform: 'translateX(0) rotateY(0)' },
+              { transform: `translateX(${(TO-FROM)/2}px) rotateY(90deg)`, offset: 0.2 },
+              { transform: `translateX(${(TO-FROM)/2}px) rotateY(90deg)`, offset: 0.8 }, // hold for 60% of the duration
+              { transform: `translateX(${TO-FROM}px) rotateY(180deg)` },
+            ],
+            { duration: 2600, easing: 'linear', fill: 'forwards' },
+          ).finished;
+        },
+        // auto-crop: a small token moving in the top-left corner of a big empty stage
+        'tiny-token-in-corner'() {
+          stage.innerHTML = '';
+          const t = el('card', { left: '40px', top: '40px', width: '34px', height: '34px', borderRadius: '50%', fontSize: '18px' });
+          t.textContent = '●';
+          return t.animate(
+            [{ transform: 'translate(0,0)' }, { transform: 'translate(150px,40px)' }],
+            { duration: 1200, easing: 'ease-in-out', fill: 'forwards' },
+          ).finished;
+        },
+        // too fast: 250ms — needs slowdown to sample
+        'too-fast'() {
+          stage.innerHTML = ''; slots(); const c = card(); c.textContent = '★';
+          return c.animate(flightFrames, { duration: 250, easing: 'linear', fill: 'forwards' }).finished;
+        },
+      };
+
+      // Reference metadata: the recommended capture settings per scenario. The
+      // capture script does NOT read this — it's documentation so you can see the
+      // flags each scenario wants, e.g.
+      //   mcs-capture --url file://.../demo/index.html --play "window.play('too-fast')" \
+      //               --clip .stage --slowdown 6 --count 40 --interval 50
+      window.SCENARIOS = {
+        'slide':               { play: "window.play('slide')",               clip: '.stage', count: 48, interval: 70, slowdown: 4, select: 10 },
+        'banger':              { play: "window.play('banger')",              clip: '.stage', count: 96, interval: 70, slowdown: 5, select: 16, edges: true },
+        'card-flight':         { play: "window.play('card-flight')",         clip: '.stage', count: 60, interval: 80, slowdown: 5, select: 12 },
+        'snap-on-release':     { play: "window.play('snap-on-release')",     clip: '.stage', count: 72, interval: 80, slowdown: 5, select: 12 },
+        'pre-flight-flash':    { play: "window.play('pre-flight-flash')",    clip: '.stage', count: 60, interval: 70, slowdown: 5, select: 12 },
+        'long-pause':          { play: "window.play('long-pause')",          clip: '.stage', count: 96, interval: 80, slowdown: 5, select: 12 },
+        'tiny-token-in-corner':{ play: "window.play('tiny-token-in-corner')",clip: '.stage', count: 48, interval: 70, slowdown: 4, select: 10 },
+        'too-fast':            { play: "window.play('too-fast')",            clip: '.stage', count: 40, interval: 50, slowdown: 6, select: 10 },
+      };
+
+      window.play = (name) => (scenarios[name] || scenarios['card-flight'])();
+      window.addEventListener('load', () => window.play('card-flight'));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+{
+  "name": "motion-contact-sheet",
+  "version": "0.1.0",
+  "description": "Give a coding agent eyes for motion: capture a UI animation as a timed burst and tile it into one labeled contact sheet a vision model can read.",
+  "keywords": [
+    "animation",
+    "testing",
+    "contact-sheet",
+    "playwright",
+    "ai-agent",
+    "vision-model",
+    "claude-code",
+    "screenshot"
+  ],
+  "homepage": "https://kallin.github.io/blog/agents-eyes-for-motion/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kallin/motion-contact-sheet.git"
+  },
+  "bugs": "https://github.com/Kallin/motion-contact-sheet/issues",
+  "author": "Kallin Nagelberg",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "mcs-capture": "scripts/capture.mjs",
+    "mcs-sheet": "scripts/build-sheet.mjs"
+  },
+  "files": [
+    "scripts",
+    "demo",
+    ".claude",
+    "README.md"
+  ],
+  "scripts": {
+    "example": "node scripts/capture.mjs --url file://$PWD/demo/index.html --play \"window.play()\" --clip .stage --count 48 --interval 60 --slowdown 6 --out examples/frames && node scripts/build-sheet.mjs examples/frames --select 12 --out examples/contact-sheet.png"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0",
+    "sharp": "^0.34.0"
+  }
+}
